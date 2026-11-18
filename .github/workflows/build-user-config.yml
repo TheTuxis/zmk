@@ -155,7 +155,7 @@ jobs:
           echo "# Consider Pinning ZMK" >> $GITHUB_STEP_SUMMARY
           echo "Your recent build failure might be the result of breaking changes made to ZMK's main branch." >> $GITHUB_STEP_SUMMARY
           echo "Consider [pinning your ZMK version](https://zmk.dev/blog/2025/06/20/pinned-zmk) to a release for increased stability." >> $GITHUB_STEP_SUMMARY
-          echo "See also the [list of released versions](https://github.com/zmkfirmware/zmk/releases)." >> $GITHUB_STEP_SUMMARY
+          echo "See also the [list of released versions](https://github.com/TheTuxis/zmk/releases)." >> $GITHUB_STEP_SUMMARY
           echo "If you wish to stay on main, check the most recent pending release PR for breaking changes. [Our blog](https://zmk.dev/blog) may have upgrade information if breaking changes are significant." >> $GITHUB_STEP_SUMMARY
 
       - name: Check if building a board without explicit ZMK compat
