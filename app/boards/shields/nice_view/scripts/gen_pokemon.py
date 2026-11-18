@@ -9,7 +9,7 @@ import json
 import sys
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-W, H = 68, 140  # upright (portrait) layout; the panel data is this rotated 90 deg CCW
+W, H = 68, 140  # upright (portrait) layout; the panel data is this rotated 90 deg CW
 SPRITE = 66
 
 
@@ -38,7 +38,7 @@ def render(path, num, name):
 
 
 def pack(img):
-    data = img.rotate(90, expand=True)  # 140x68
+    data = img.rotate(270, expand=True)  # 140x68
     assert data.size == (140, 68)
     out = bytearray()
     for y in range(68):
