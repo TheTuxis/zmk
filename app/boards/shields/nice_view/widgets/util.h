@@ -35,8 +35,6 @@ struct status_state {
     const char *layer_label;
     uint8_t wpm[10];
     int16_t periph_battery; // -1 when unknown
-    uint8_t mods;           // MOD_* flags
-    uint8_t indicators;     // HID LED bits: NumLock=1, CapsLock=2, ScrollLock=4
     uint8_t pokemon;        // index into pokemon_small_imgs
 #else
     bool connected;

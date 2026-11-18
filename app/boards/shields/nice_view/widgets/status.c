@@ -25,12 +25,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/endpoints.h>
 #include <zmk/keymap.h>
 #include <zmk/wpm.h>
-#include <zmk/hid.h>
-#include <zmk/hid_indicators.h>
-#include <zmk/events/modifiers_state_changed.h>
-#include <zmk/events/hid_indicators_changed.h>
 #include <zmk/split/central.h>
-#include <dt-bindings/zmk/modifiers.h>
 #include <zephyr/random/random.h>
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
@@ -59,8 +54,8 @@ extern const lv_img_dsc_t pokemon_small_imgs[151]; // see widgets/pokemon_small.
 /*
  * Layout (upright, 68 px wide; the three 68x68 tiles are stacked top to bottom):
  *   A: batteries (L / R), output + BLE profiles, WPM
- *   B: layer name + small Pokemon
- *   C: modifiers and lock indicators (only 24 px visible)
+ *   B: Pokemon
+ *   C: layer name (only 24 px visible)
  */
 
 static void draw_battery_row(lv_obj_t *canvas, int y, const char *side, int level, bool charging) {
@@ -187,6 +182,19 @@ static void draw_top(lv_obj_t *widget, const struct status_state *state) {
 static void draw_middle(lv_obj_t *widget, const struct status_state *state) {
     lv_obj_t *canvas = lv_obj_get_child(widget, 1);
 
+    lv_canvas_fill_bg(canvas, LVGL_BACKGROUND, LV_OPA_COVER);
+
+    // Random Pokemon (chosen at boot)
+    lv_draw_image_dsc_t img_dsc;
+    lv_draw_image_dsc_init(&img_dsc);
+    canvas_draw_img(canvas, 2, 2, &pokemon_small_imgs[state->pokemon % 151], &img_dsc);
+
+    rotate_canvas(canvas);
+}
+
+static void draw_bottom(lv_obj_t *widget, const struct status_state *state) {
+    lv_obj_t *canvas = lv_obj_get_child(widget, 2);
+
     lv_draw_label_dsc_t label_big;
     init_label_dsc(&label_big, LVGL_FOREGROUND, &lv_font_montserrat_18, LV_TEXT_ALIGN_CENTER);
     lv_draw_label_dsc_t label_small;
@@ -198,52 +206,12 @@ static void draw_middle(lv_obj_t *widget, const struct status_state *state) {
     if (state->layer_label == NULL || strlen(state->layer_label) == 0) {
         char text[12] = {};
         snprintf(text, sizeof(text), "LAYER %i", state->layer_index);
-        canvas_draw_text(canvas, 0, 3, 68, &label_small, text);
+        canvas_draw_text(canvas, 0, 4, 68, &label_small, text);
     } else if (strlen(state->layer_label) <= 6) {
-        canvas_draw_text(canvas, 0, 0, 68, &label_big, state->layer_label);
+        canvas_draw_text(canvas, 0, 1, 68, &label_big, state->layer_label);
     } else {
-        canvas_draw_text(canvas, 0, 3, 68, &label_small, state->layer_label);
+        canvas_draw_text(canvas, 0, 4, 68, &label_small, state->layer_label);
     }
-
-    // Small Pokemon
-    lv_draw_image_dsc_t img_dsc;
-    lv_draw_image_dsc_init(&img_dsc);
-    canvas_draw_img(canvas, 14, 26, &pokemon_small_imgs[state->pokemon % 151], &img_dsc);
-
-    rotate_canvas(canvas);
-}
-
-static void draw_flag_box(lv_obj_t *canvas, int x, int y, int w, const char *txt, bool active) {
-    lv_draw_rect_dsc_t rect_black_dsc;
-    init_rect_dsc(&rect_black_dsc, LVGL_BACKGROUND);
-    lv_draw_rect_dsc_t rect_white_dsc;
-    init_rect_dsc(&rect_white_dsc, LVGL_FOREGROUND);
-    lv_draw_label_dsc_t label_dsc;
-    init_label_dsc(&label_dsc, active ? LVGL_BACKGROUND : LVGL_FOREGROUND, &lv_font_unscii_8,
-                   LV_TEXT_ALIGN_CENTER);
-
-    canvas_draw_rect(canvas, x, y, w, 11, &rect_white_dsc);
-    if (!active) {
-        canvas_draw_rect(canvas, x + 1, y + 1, w - 2, 9, &rect_black_dsc);
-    }
-    canvas_draw_text(canvas, x, y + 2, w, &label_dsc, txt);
-}
-
-static void draw_bottom(lv_obj_t *widget, const struct status_state *state) {
-    lv_obj_t *canvas = lv_obj_get_child(widget, 2);
-
-    lv_canvas_fill_bg(canvas, LVGL_BACKGROUND, LV_OPA_COVER);
-
-    // Modifiers
-    draw_flag_box(canvas, 0, 0, 15, "C", state->mods & (MOD_LCTL | MOD_RCTL));
-    draw_flag_box(canvas, 17, 0, 15, "S", state->mods & (MOD_LSFT | MOD_RSFT));
-    draw_flag_box(canvas, 34, 0, 15, "A", state->mods & (MOD_LALT | MOD_RALT));
-    draw_flag_box(canvas, 51, 0, 15, "G", state->mods & (MOD_LGUI | MOD_RGUI));
-
-    // Locks: Caps / Num / Scroll
-    draw_flag_box(canvas, 0, 13, 21, "CL", state->indicators & 0x02);
-    draw_flag_box(canvas, 23, 13, 21, "NL", state->indicators & 0x01);
-    draw_flag_box(canvas, 46, 13, 21, "SL", state->indicators & 0x04);
 
     rotate_canvas(canvas);
 }
@@ -331,7 +299,7 @@ static void set_layer_status(struct zmk_widget_status *widget, struct layer_stat
     widget->state.layer_index = state.index;
     widget->state.layer_label = state.label;
 
-    draw_middle(widget->obj, &widget->state);
+    draw_bottom(widget->obj, &widget->state);
 }
 
 static void layer_status_update_cb(struct layer_status_state state) {
@@ -371,59 +339,6 @@ struct wpm_status_state wpm_status_get_state(const zmk_event_t *eh) {
 ZMK_DISPLAY_WIDGET_LISTENER(widget_wpm_status, struct wpm_status_state, wpm_status_update_cb,
                             wpm_status_get_state)
 ZMK_SUBSCRIPTION(widget_wpm_status, zmk_wpm_state_changed);
-
-struct mods_status_state {
-    uint8_t mods;
-};
-
-static void set_mods_status(struct zmk_widget_status *widget, struct mods_status_state state) {
-    widget->state.mods = state.mods;
-    draw_bottom(widget->obj, &widget->state);
-}
-
-static void mods_status_update_cb(struct mods_status_state state) {
-    struct zmk_widget_status *widget;
-    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_mods_status(widget, state); }
-}
-
-static struct mods_status_state mods_status_get_state(const zmk_event_t *eh) {
-    return (struct mods_status_state){.mods = zmk_hid_get_explicit_mods()};
-}
-
-ZMK_DISPLAY_WIDGET_LISTENER(widget_mods_status, struct mods_status_state, mods_status_update_cb,
-                            mods_status_get_state)
-ZMK_SUBSCRIPTION(widget_mods_status, zmk_modifiers_state_changed);
-
-struct indicators_status_state {
-    uint8_t indicators;
-};
-
-static void set_indicators_status(struct zmk_widget_status *widget,
-                                  struct indicators_status_state state) {
-    widget->state.indicators = state.indicators;
-    draw_bottom(widget->obj, &widget->state);
-}
-
-static void indicators_status_update_cb(struct indicators_status_state state) {
-    struct zmk_widget_status *widget;
-    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
-        set_indicators_status(widget, state);
-    }
-}
-
-static struct indicators_status_state indicators_status_get_state(const zmk_event_t *eh) {
-    return (struct indicators_status_state){
-#if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
-        .indicators = zmk_hid_indicators_get_current_profile(),
-#endif
-    };
-}
-
-ZMK_DISPLAY_WIDGET_LISTENER(widget_indicators_status, struct indicators_status_state,
-                            indicators_status_update_cb, indicators_status_get_state)
-#if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
-ZMK_SUBSCRIPTION(widget_indicators_status, zmk_hid_indicators_changed);
-#endif
 
 struct periph_battery_state {
     int16_t level;
@@ -480,9 +395,8 @@ int zmk_widget_status_init(struct zmk_widget_status *widget, lv_obj_t *parent) {
     widget_battery_status_init();
     widget_output_status_init();
     widget_layer_status_init();
+    draw_middle(widget->obj, &widget->state);
     widget_wpm_status_init();
-    widget_mods_status_init();
-    widget_indicators_status_init();
     widget_periph_battery_init();
 
     return 0;
