@@ -51,6 +51,13 @@ config NICE_VIEW_WIDGET_STATUS
     select LV_FONT_UNSCII_8
     select ZMK_WPM
 
+# Show the right half's battery and the Caps/Num/Scroll lock state on the central screen
+config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
+    default y if ZMK_SPLIT
+
+config ZMK_HID_INDICATORS
+    default y
+
 endif # !ZMK_SPLIT || ZMK_SPLIT_ROLE_CENTRAL
 
 config ZMK_DISPLAY_STATUS_SCREEN_BUILT_IN
